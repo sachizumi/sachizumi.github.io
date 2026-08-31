@@ -257,6 +257,33 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
   });
 })();
 
+/* ---------- project preview: tap-to-reveal on touch devices ---------- */
+/* Hover already reveals this on mouse-driven devices (see CSS); touch
+   devices have no hover state at all, so give them an explicit tap
+   instead, without hijacking taps on the "visit" link itself. */
+(function(){
+  const boxes = Array.from(document.querySelectorAll('.project-box'));
+  if (!boxes.length) return;
+
+  const isTouchOnly = window.matchMedia('(hover: none)').matches;
+  if (!isTouchOnly) return;
+
+  boxes.forEach(box => {
+    box.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return; // let the visit link navigate as normal
+      const wasOpen = box.classList.contains('preview-open');
+      boxes.forEach(b => b.classList.remove('preview-open'));
+      if (!wasOpen) box.classList.add('preview-open');
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.project-box')){
+      boxes.forEach(b => b.classList.remove('preview-open'));
+    }
+  });
+})();
+
 /* ---------- talking sprite buddy ---------- */
 (function(){
   const buddy = document.getElementById('buddy');
@@ -344,6 +371,14 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
   }
 
   buddy.addEventListener('click', nextLine);
+
+  // Purely visual press feedback — kept separate from nextLine() above so
+  // it fires on every tap, even while a line is still typing out and the
+  // click itself is being ignored.
+  buddy.addEventListener('pointerdown', () => buddy.classList.add('squish'));
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(evt => {
+    buddy.addEventListener(evt, () => buddy.classList.remove('squish'));
+  });
 
   window.addEventListener('load', () => {
     setTimeout(() => {

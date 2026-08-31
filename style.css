@@ -210,6 +210,11 @@ section{ padding:44px 0; border-top:1px solid var(--border); }
     transform:translateX(-50%) translateY(0);
   }
 }
+/* Touch devices have no hover state — JS toggles this class on tap instead. */
+.project-box.preview-open .project-preview{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+}
 .project-head{
   display:flex;
   align-items:center;
@@ -368,6 +373,13 @@ section{ padding:44px 0; border-top:1px solid var(--border); }
   height:auto;
   display:block;
   filter:drop-shadow(0 8px 16px rgba(0,0,0,0.55));
+  transform-origin:bottom center;
+  transition:transform .12s ease;
+}
+.buddy.squish .buddy-img{ transform:scaleY(0.82) scaleX(1.08); }
+@media (prefers-reduced-motion: reduce){
+  .buddy-img{ transition:none; }
+  .buddy.squish .buddy-img{ transform:none; }
 }
 
 .buddy-bubble{
