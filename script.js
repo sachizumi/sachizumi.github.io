@@ -36,6 +36,7 @@ function updateActiveThumb(){
 function loadContent(){
   const tile = tiles[currentIndex];
   const { type, full, alt } = tile.dataset;
+  document.dispatchEvent(new CustomEvent('lightbox:video-close')); // clear any prior video interrupt before swapping
   lightboxContent.innerHTML = '';
   if (type === 'video'){
     const video = document.createElement('video');
@@ -44,6 +45,7 @@ function loadContent(){
     video.autoplay = true;
     video.playsInline = true;
     lightboxContent.appendChild(video);
+    document.dispatchEvent(new CustomEvent('lightbox:video-open'));
   } else {
     const img = document.createElement('img');
     img.src = full;
@@ -79,6 +81,7 @@ function closeLightbox(){
   lightbox.classList.remove('open');
   lightbox.setAttribute('aria-hidden', 'true');
   lightboxContent.innerHTML = ''; // stops video playback
+  document.dispatchEvent(new CustomEvent('lightbox:video-close'));
   document.body.style.overflow = '';
   if (lastFocused) lastFocused.focus();
 }
@@ -562,6 +565,8 @@ const ID3 = (function(){
   prevBtn.addEventListener('click', () => loadTrack(index - 1, !audio.paused));
   nextBtn.addEventListener('click', () => loadTrack(index + 1, !audio.paused));
 
+  let refreshVolumeUI = () => {};
+
   // Volume control, separate from the visitor's system/master volume.
   if (volumeSlider && muteBtn){
     let lastVolume = 0.7;
@@ -601,6 +606,7 @@ const ID3 = (function(){
     });
 
     syncFromAudio();
+    refreshVolumeUI = syncFromAudio;
   }
 
   progress.addEventListener('click', (e) => {
@@ -618,6 +624,40 @@ const ID3 = (function(){
     }, { threshold: 0.1 });
     observer.observe(artEl);
   }
+
+  // Pause the player outright while a lightbox video is open, and resume
+  // afterward only if it was actually playing beforehand.
+  let resumeAfterVideo = false;
+  document.addEventListener('lightbox:video-open', () => {
+    if (!audio.paused){
+      resumeAfterVideo = true;
+      audio.pause();
+    }
+  });
+  document.addEventListener('lightbox:video-close', () => {
+    if (resumeAfterVideo){
+      resumeAfterVideo = false;
+      audio.play().catch(() => {});
+    }
+  });
+
+  // Duck (not pause) the volume when the visitor switches to another tab
+  // or app, then restore it once this tab is focused again — same idea as
+  // background-audio ducking in Spotify/Discord, rather than a hard stop.
+  const DUCK_LEVEL = 0.15;
+  let volumeBeforeDuck = null;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden){
+      if (volumeBeforeDuck === null && !audio.muted){
+        volumeBeforeDuck = audio.volume;
+        audio.volume = Math.min(audio.volume, DUCK_LEVEL);
+      }
+    } else if (volumeBeforeDuck !== null){
+      audio.volume = volumeBeforeDuck;
+      volumeBeforeDuck = null;
+      refreshVolumeUI();
+    }
+  });
 
   loadTrack(0, false);
 
