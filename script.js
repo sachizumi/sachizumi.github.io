@@ -326,7 +326,7 @@ const Sound = (function(){
   const SLEEP_SRC = 'assets/sprite/sleep.png';
 
   const lines = [
-    "oh! a visitor! o-o",
+    "o! a visitor! o-o",
     "she/they, if that wasn't already clear from the bow",
     "still procrastinating on literally everything lol",
     "I didn't like page builders and I have more customizability here so...",
@@ -342,16 +342,31 @@ const Sound = (function(){
   let typeTimer = null;
   let flapTimer = null;
 
+  // The full line is placed in the DOM immediately as one span per
+  // character, each starting visibility:hidden. Hidden (not display:none)
+  // spans still take up their layout space, so the bubble is already at its
+  // true final size on frame one — "typing" is just flipping each
+  // character's visibility over time, not growing the text itself. That's
+  // what kills the resize-as-you-type "teleporting" box from before, and it
+  // means there's no separate measuring step needed anymore.
   function typeLine(line, useShock){
     typing = true;
     moreEl.style.opacity = '0';
-    textEl.textContent = '';
-    bubble.classList.add('show');
     clearInterval(typeTimer);
     clearInterval(flapTimer);
 
+    textEl.innerHTML = '';
+    const chars = Array.from(line).map(ch => {
+      const span = document.createElement('span');
+      span.textContent = ch;
+      span.style.visibility = 'hidden';
+      textEl.appendChild(span);
+      return span;
+    });
+    bubble.classList.add('show');
+
     if (reduceMotion){
-      textEl.textContent = line;
+      chars.forEach(span => { span.style.visibility = 'visible'; });
       img.src = useShock ? SHOCK_SRC : IDLE_SRC;
       typing = false;
       moreEl.style.opacity = '1';
@@ -369,11 +384,11 @@ const Sound = (function(){
 
     let i = 0;
     typeTimer = setInterval(() => {
+      const span = chars[i];
+      span.style.visibility = 'visible';
+      if (span.textContent.trim() !== '') Sound.type();
       i++;
-      textEl.textContent = line.slice(0, i);
-      const lastChar = line[i - 1];
-      if (lastChar && lastChar.trim() !== '') Sound.type();
-      if (i >= line.length){
+      if (i >= chars.length){
         clearInterval(typeTimer);
         clearInterval(flapTimer);
         img.src = IDLE_SRC;
