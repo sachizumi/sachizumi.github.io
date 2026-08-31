@@ -366,6 +366,44 @@ section{ padding:44px 0; border-top:1px solid var(--border); }
   display:flex;
   flex-direction:column;
   align-items:flex-end;
+  position:relative;
+}
+
+/* floating pixel Z's — spawned one at a time by JS while she's asleep,
+   capped at 3 on screen so they trail off diagonally instead of piling up */
+.buddy-zzz{
+  position:absolute;
+  top:6px;
+  right:26px;
+  width:1px;
+  height:1px;
+  pointer-events:none;
+}
+.zzz-z{
+  position:absolute;
+  right:0;
+  bottom:0;
+  font-family:'JetBrains Mono', monospace;
+  font-weight:800;
+  color:var(--green);
+  text-shadow:2px 2px 0 rgba(0,0,0,.5);
+  image-rendering:pixelated;
+  font-size:12px;
+  opacity:0;
+  animation:zzz-float 2.4s ease-in forwards;
+}
+@keyframes zzz-float{
+  0%{ transform:translate(0,0) scale(.6); opacity:0; }
+  15%{ opacity:1; }
+  75%{ opacity:.75; }
+  100%{ transform:translate(calc(18px + var(--zx, 0px)), -46px) scale(1.6); opacity:0; }
+}
+.zzz-z.zzz-static{
+  position:static;
+  animation:none;
+  opacity:.85;
+  font-size:13px;
+  letter-spacing:1px;
 }
 
 .buddy-img{
@@ -377,9 +415,20 @@ section{ padding:44px 0; border-top:1px solid var(--border); }
   transition:transform .12s ease;
 }
 .buddy.squish .buddy-img{ transform:scaleY(0.82) scaleX(1.08); }
+
+/* slow squish-and-release "breathing" while she's asleep */
+.buddy.asleep .buddy-img{
+  animation:sleep-breathe 2.6s ease-in-out infinite;
+}
+@keyframes sleep-breathe{
+  0%, 100%{ transform:scaleY(1) scaleX(1); }
+  50%{ transform:scaleY(0.94) scaleX(1.035); }
+}
+
 @media (prefers-reduced-motion: reduce){
   .buddy-img{ transition:none; }
   .buddy.squish .buddy-img{ transform:none; }
+  .buddy.asleep .buddy-img{ animation:none; }
 }
 
 .buddy-bubble{

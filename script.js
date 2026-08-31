@@ -291,11 +291,13 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
   const textEl = document.getElementById('buddyText');
   const moreEl = document.getElementById('buddyMore');
   const img = document.getElementById('buddyImg');
+  const zzzContainer = document.getElementById('buddyZzz');
   if (!buddy) return;
 
   const IDLE_SRC = 'assets/sprite/idle.png';
   const TALK_SRC = 'assets/sprite/talk.png';
   const SHOCK_SRC = 'assets/sprite/shock.png';
+  const SLEEP_SRC = 'assets/sprite/sleep.png';
 
   const lines = [
     "oh! a visitor! o-o",
@@ -310,6 +312,7 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
   let index = 0;
   let idleIndex = 0;
   let typing = false;
+  let asleep = true;
   let typeTimer = null;
   let flapTimer = null;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -370,7 +373,69 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
     typeLine(line, useShock);
   }
 
-  buddy.addEventListener('click', nextLine);
+  // Floating "Z"s while she's asleep — spawned one at a time rather than
+  // three fixed elements looping, so they trail off in a diagonal line.
+  // Capped at MAX_ZZZ on screen: the moment a new one spawns past the cap,
+  // the oldest still-floating one is despawned immediately.
+  const MAX_ZZZ = 3;
+  const ZZZ_SPAWN_MS = 800;
+  let zzzTimer = null;
+
+  function spawnZ(){
+    if (!zzzContainer) return;
+    while (zzzContainer.children.length >= MAX_ZZZ){
+      zzzContainer.removeChild(zzzContainer.firstElementChild);
+    }
+    const z = document.createElement('span');
+    z.className = 'zzz-z';
+    z.textContent = 'Z';
+    z.style.setProperty('--zx', `${(Math.random() * 10 - 5).toFixed(1)}px`);
+    z.addEventListener('animationend', () => z.remove());
+    zzzContainer.appendChild(z);
+  }
+
+  function startZzz(){
+    stopZzz();
+    if (!zzzContainer) return;
+    if (reduceMotion){
+      const z = document.createElement('span');
+      z.className = 'zzz-z zzz-static';
+      z.textContent = 'zzz';
+      zzzContainer.appendChild(z);
+      return;
+    }
+    spawnZ();
+    zzzTimer = setInterval(spawnZ, ZZZ_SPAWN_MS);
+  }
+
+  function stopZzz(){
+    clearInterval(zzzTimer);
+    zzzTimer = null;
+    if (zzzContainer) zzzContainer.innerHTML = '';
+  }
+
+  // She loads asleep. Waking her up is the visitor's first real tap on the
+  // page doubling as the guaranteed user gesture the audio player needs
+  // rather than a silent hidden listener, this is an honest, on-theme way
+  // to ask for it.
+  function wake(){
+    asleep = false;
+    buddy.classList.remove('asleep');
+    stopZzz();
+    buddy.setAttribute('aria-label', 'elle. Click for another line.');
+    img.src = SHOCK_SRC; // startled the moment she wakes up
+    setTimeout(() => {
+      nextLine();
+    }, reduceMotion ? 50 : 1500);
+  }
+
+  buddy.addEventListener('click', () => {
+    if (asleep){
+      wake();
+      return;
+    }
+    nextLine();
+  });
 
   // Purely visual press feedback — kept separate from nextLine() above so
   // it fires on every tap, even while a line is still typing out and the
@@ -383,10 +448,10 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
   window.addEventListener('load', () => {
     setTimeout(() => {
       buddy.classList.add('revealed');
-      img.src = SHOCK_SRC; // startled the moment she pops into view
-      setTimeout(() => {
-        nextLine();
-      }, reduceMotion ? 50 : 1500);
+      buddy.classList.add('asleep');
+      buddy.setAttribute('aria-label', 'elle is asleep. Click to wake her up.');
+      img.src = SLEEP_SRC;
+      startZzz();
     }, 700);
   });
 })();
