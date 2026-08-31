@@ -306,7 +306,7 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
     "thanks for stopping by!",
     "...okay you can stop clicking me now. or don't, I'm not the boss of you"
   ];
-  const idleLines = ["...", "la la la la \ud83c\udfb5"];
+  const idleLines = ["bleh", "la la la la \ud83c\udfb5", "i'm still becoming, and that's enough", "rahhh!", "i love my 'puter, all my friends are in it :3", "owieee", "\u003C!"];
   let index = 0;
   let idleIndex = 0;
   let typing = false;
