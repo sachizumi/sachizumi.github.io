@@ -208,9 +208,6 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
     .filter(el => !el.hasAttribute('aria-hidden'))
     .map(el => el.cloneNode(true));
 
-  // More items already read as "varied" content close together, so they
-  // need less breathing room each; fewer items need a wider gap or the
-  // loop reads as one repeating strip instead of distinct announcements.
   const GAP_CONSTANT = 220;
   const gap = Math.min(150, Math.max(40, GAP_CONSTANT / baseItems.length));
   track.style.setProperty('--ticker-gap', `${gap}px`);
@@ -222,7 +219,7 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
     track.innerHTML = '';
 
     // Repeat the item cycle until it's at least as wide as the ticker bar
-    // itself — otherwise, on wide screens, the short content runs out and
+    // itself otherwise, on wide screens, the short content runs out and
     // leaves a blank stretch before the loop restarts.
     let guard = 0;
     while (track.scrollWidth < ticker.clientWidth && guard < 40){
@@ -304,7 +301,7 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
     }
 
     if (useShock){
-      img.src = SHOCK_SRC; // startled, static — no mouth flap for this one
+      img.src = SHOCK_SRC; // startled, static. no mouth flap for this one
     } else {
       img.src = TALK_SRC;
       flapTimer = setInterval(() => {
@@ -348,7 +345,7 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
   window.addEventListener('load', () => {
     setTimeout(() => {
       buddy.classList.add('revealed');
-      img.src = SHOCK_SRC; // she's startled the moment she pops into view
+      img.src = SHOCK_SRC; // startled the moment she pops into view
       setTimeout(() => {
         nextLine();
       }, reduceMotion ? 50 : 1500);
@@ -359,11 +356,11 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
 /* ---------- ID3 tag reader ---------- */
 /* Pulls title, artist, and embedded cover art straight out of an MP3's
    ID3v2 tag (the same data your OS or Spotify reads), so the player
-   below doesn't need a hand-maintained title/artist/cover per track —
+   below doesn't need a hand-maintained title/artist/cover per track
    just point it at the file. Covers ID3v2.3 and v2.4 tags, which is
    what virtually every modern tagger (iTunes, Mp3tag, ffmpeg, etc.)
    writes. Known gaps: no support for the old 3-char-frame-ID v2.2
-   format, and unsynchronized frames aren't decoded — both are rare
+   format, and unsynchronized frames aren't decoded both are rare
    in practice. */
 const ID3 = (function(){
   function syncsafeToInt(b){
@@ -408,7 +405,7 @@ const ID3 = (function(){
     const tagSize = syncsafeToInt(bytes.subarray(6, 10));
     let offset = 10;
 
-    if (flags & 0x40){ // extended header present — skip past it
+    if (flags & 0x40){ // extended header present
       const extBytes = bytes.subarray(offset, offset + 4);
       offset += majorVersion >= 4 ? syncsafeToInt(extBytes) : bigEndianToInt(extBytes);
     }
@@ -461,7 +458,7 @@ const ID3 = (function(){
 /* ---------- currently listening player ---------- */
 (function(){
   // Add tracks here as { src }. Title, artist, and cover art are read
-  // automatically from each file's ID3 tags — no covers folder needed.
+  // automatically from each file's ID3 tags no covers folder needed.
   // If a file has no tags (or tag-reading fails), pass optional
   // title/artist/cover as a fallback:
   // { src: "assets/audio/song.mp3", title: "...", artist: "...", cover: "..." }
