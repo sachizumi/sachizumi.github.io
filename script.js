@@ -1,102 +1,116 @@
-const tiles = Array.from(document.querySelectorAll('.art-tile'));
-const lightbox = document.getElementById('lightbox');
-const lightboxContent = document.getElementById('lightboxContent');
-const lightboxClose = document.getElementById('lightboxClose');
-const lightboxPrev = document.getElementById('lightboxPrev');
-const lightboxNext = document.getElementById('lightboxNext');
-const lightboxThumbs = document.getElementById('lightboxThumbs');
-let lastFocused = null;
-let currentIndex = 0;
+/* ---------- shared setup ----------
+   reduceMotion is computed once here and reused by every section below,
+   instead of each one re-querying matchMedia on its own.
+   Sound (defined further down) is a plain top-level const, so every IIFE
+   in this file can close over it — but that means Sound must stay defined
+   before anything that calls it actually runs. Every call site below is
+   deferred (inside an event handler or a setTimeout), so today's file
+   order is safe; just keep Sound above the fold if you reorder sections. */
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-function renderThumbs(){
-  lightboxThumbs.innerHTML = '';
-  if (tiles.length <= 1) return;
-  tiles.forEach((tile, i) => {
-    const { type, alt } = tile.dataset;
-    const thumbImg = tile.querySelector('img');
-    const btn = document.createElement('button');
-    btn.className = 'lightbox-thumb' + (type === 'video' ? ' is-video' : '');
-    btn.setAttribute('aria-label', (alt || `Item ${i + 1}`));
-    const img = document.createElement('img');
-    img.src = thumbImg.src;
-    img.alt = '';
-    btn.appendChild(img);
-    btn.addEventListener('click', () => showIndex(i));
-    lightboxThumbs.appendChild(btn);
-  });
-  updateActiveThumb();
-}
+/* ---------- art lightbox ---------- */
+(function(){
+  const tiles = Array.from(document.querySelectorAll('.art-tile'));
+  const lightbox = document.getElementById('lightbox');
+  const lightboxContent = document.getElementById('lightboxContent');
+  const lightboxClose = document.getElementById('lightboxClose');
+  const lightboxPrev = document.getElementById('lightboxPrev');
+  const lightboxNext = document.getElementById('lightboxNext');
+  const lightboxThumbs = document.getElementById('lightboxThumbs');
+  if (!lightbox || !tiles.length) return;
+  let lastFocused = null;
+  let currentIndex = 0;
 
-function updateActiveThumb(){
-  lightboxThumbs.querySelectorAll('.lightbox-thumb').forEach((el, i) => {
-    el.classList.toggle('active', i === currentIndex);
-  });
-}
-
-function loadContent(){
-  const tile = tiles[currentIndex];
-  const { type, full, alt } = tile.dataset;
-  document.dispatchEvent(new CustomEvent('lightbox:video-close')); // clear any prior video interrupt before swapping
-  lightboxContent.innerHTML = '';
-  if (type === 'video'){
-    const video = document.createElement('video');
-    video.src = full;
-    video.controls = true;
-    video.autoplay = true;
-    video.playsInline = true;
-    lightboxContent.appendChild(video);
-    document.dispatchEvent(new CustomEvent('lightbox:video-open'));
-  } else {
-    const img = document.createElement('img');
-    img.src = full;
-    img.alt = alt || '';
-    lightboxContent.appendChild(img);
+  function renderThumbs(){
+    lightboxThumbs.innerHTML = '';
+    if (tiles.length <= 1) return;
+    tiles.forEach((tile, i) => {
+      const { type, alt } = tile.dataset;
+      const thumbImg = tile.querySelector('img');
+      const btn = document.createElement('button');
+      btn.className = 'lightbox-thumb' + (type === 'video' ? ' is-video' : '');
+      btn.setAttribute('aria-label', (alt || `Item ${i + 1}`));
+      const img = document.createElement('img');
+      img.src = thumbImg.src;
+      img.alt = '';
+      btn.appendChild(img);
+      btn.addEventListener('click', () => showIndex(i));
+      lightboxThumbs.appendChild(btn);
+    });
+    updateActiveThumb();
   }
-}
 
-function showIndex(i){
-  currentIndex = (i + tiles.length) % tiles.length;
-  loadContent();
-  updateActiveThumb();
-  Sound.click();
-}
+  function updateActiveThumb(){
+    lightboxThumbs.querySelectorAll('.lightbox-thumb').forEach((el, i) => {
+      el.classList.toggle('active', i === currentIndex);
+    });
+  }
 
-function openLightbox(index){
-  currentIndex = index;
-  Sound.open();
-  loadContent();
-  renderThumbs();
-  const multi = tiles.length > 1;
-  lightboxPrev.style.display = multi ? '' : 'none';
-  lightboxNext.style.display = multi ? '' : 'none';
-  lastFocused = document.activeElement;
-  lightbox.classList.add('open');
-  lightbox.setAttribute('aria-hidden', 'false');
-  document.body.style.overflow = 'hidden';
-  lightboxClose.focus();
-}
+  function loadContent(){
+    const tile = tiles[currentIndex];
+    const { type, full, alt } = tile.dataset;
+    document.dispatchEvent(new CustomEvent('lightbox:video-close')); // clear any prior video interrupt before swapping
+    lightboxContent.innerHTML = '';
+    if (type === 'video'){
+      const video = document.createElement('video');
+      video.src = full;
+      video.controls = true;
+      video.autoplay = true;
+      video.playsInline = true;
+      lightboxContent.appendChild(video);
+      document.dispatchEvent(new CustomEvent('lightbox:video-open'));
+    } else {
+      const img = document.createElement('img');
+      img.src = full;
+      img.alt = alt || '';
+      lightboxContent.appendChild(img);
+    }
+  }
 
-function closeLightbox(){
-  Sound.close();
-  lightbox.classList.remove('open');
-  lightbox.setAttribute('aria-hidden', 'true');
-  lightboxContent.innerHTML = ''; // stops video playback
-  document.dispatchEvent(new CustomEvent('lightbox:video-close'));
-  document.body.style.overflow = '';
-  if (lastFocused) lastFocused.focus();
-}
+  function showIndex(i){
+    currentIndex = (i + tiles.length) % tiles.length;
+    loadContent();
+    updateActiveThumb();
+    Sound.click();
+  }
 
-tiles.forEach((tile, i) => tile.addEventListener('click', () => openLightbox(i)));
-lightboxClose.addEventListener('click', closeLightbox);
-lightboxPrev.addEventListener('click', () => showIndex(currentIndex - 1));
-lightboxNext.addEventListener('click', () => showIndex(currentIndex + 1));
-lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
-document.addEventListener('keydown', (e) => {
-  if (!lightbox.classList.contains('open')) return;
-  if (e.key === 'Escape') closeLightbox();
-  if (e.key === 'ArrowLeft') showIndex(currentIndex - 1);
-  if (e.key === 'ArrowRight') showIndex(currentIndex + 1);
-});
+  function openLightbox(index){
+    currentIndex = index;
+    Sound.open();
+    loadContent();
+    renderThumbs();
+    const multi = tiles.length > 1;
+    lightboxPrev.style.display = multi ? '' : 'none';
+    lightboxNext.style.display = multi ? '' : 'none';
+    lastFocused = document.activeElement;
+    lightbox.classList.add('open');
+    lightbox.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    lightboxClose.focus();
+  }
+
+  function closeLightbox(){
+    Sound.close();
+    lightbox.classList.remove('open');
+    lightbox.setAttribute('aria-hidden', 'true');
+    lightboxContent.innerHTML = ''; // stops video playback
+    document.dispatchEvent(new CustomEvent('lightbox:video-close'));
+    document.body.style.overflow = '';
+    if (lastFocused) lastFocused.focus();
+  }
+
+  tiles.forEach((tile, i) => tile.addEventListener('click', () => openLightbox(i)));
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightboxPrev.addEventListener('click', () => showIndex(currentIndex - 1));
+  lightboxNext.addEventListener('click', () => showIndex(currentIndex + 1));
+  lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+  document.addEventListener('keydown', (e) => {
+    if (!lightbox.classList.contains('open')) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft') showIndex(currentIndex - 1);
+    if (e.key === 'ArrowRight') showIndex(currentIndex + 1);
+  });
+})();
 
 /* ---------- sound engine (synthesized, no audio files) ---------- */
 const Sound = (function(){
@@ -164,41 +178,54 @@ const Sound = (function(){
   });
 })();
 
-document.querySelectorAll('a, button').forEach(el => {
-  if (el.id === 'soundToggle') return;
-  el.addEventListener('mouseenter', () => Sound.hover());
-  if (!el.classList.contains('art-tile') && !el.classList.contains('copy-btn') && !el.classList.contains('lightbox-nav')){
-    el.addEventListener('click', () => Sound.click());
-  }
-});
+/* ---------- generic hover/click sound ---------- */
+/* Opt-out via data attributes rather than a hardcoded class list, so a
+   future button that shouldn't sound just adds the attribute in its HTML
+   instead of this block needing another edit.
+   data-no-sound      -> skip both hover and click (e.g. the sound toggle
+                          itself, which has its own bespoke confirm() sound)
+   data-no-click-sound -> skip click only, keep hover (elements that already
+                          fire their own click sound elsewhere: art tiles via
+                          the lightbox, copy buttons, lightbox prev/next) */
+(function(){
+  document.querySelectorAll('a, button').forEach(el => {
+    if (el.hasAttribute('data-no-sound')) return;
+    el.addEventListener('mouseenter', () => Sound.hover());
+    if (!el.hasAttribute('data-no-click-sound')){
+      el.addEventListener('click', () => Sound.click());
+    }
+  });
+})();
 
 /* ---------- copy buttons ---------- */
-document.querySelectorAll('.copy-btn').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const text = btn.dataset.copy;
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
-    const original = btn.textContent;
-    btn.textContent = '[ copied! ]';
-    btn.classList.add('copied');
-    Sound.copy();
-    clearTimeout(btn._resetTimer);
-    btn._resetTimer = setTimeout(() => {
-      btn.textContent = original;
-      btn.classList.remove('copied');
-    }, 1400);
+(function(){
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.dataset.copy;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (err) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const original = btn.textContent;
+      btn.textContent = '[ copied! ]';
+      btn.classList.add('copied');
+      Sound.copy();
+      clearTimeout(btn._resetTimer);
+      btn._resetTimer = setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove('copied');
+      }, 1400);
+    });
   });
-});
+})();
 
 /* ---------- status ticker ---------- */
 (function(){
@@ -215,7 +242,6 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
   const gap = Math.min(150, Math.max(40, GAP_CONSTANT / baseItems.length));
   track.style.setProperty('--ticker-gap', `${gap}px`);
 
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const PIXELS_PER_SECOND = 36;
 
   function build(){
@@ -315,7 +341,6 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
   let asleep = true;
   let typeTimer = null;
   let flapTimer = null;
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function typeLine(line, useShock){
     typing = true;
@@ -570,7 +595,9 @@ const ID3 = (function(){
     { src: "assets/audio/A STORY NOW TOLD.mp3" },
     { src: "assets/audio/rains.mp3" },
     { src: "assets/audio/The Orb Of Dreamers.mp3" },
-    { src: "assets/audio/Girly Pop (pop music for girls).mp3" }
+    { src: "assets/audio/Girly Pop (pop music for girls).mp3" },
+    { src: "assets/audio/DVD.mp3" },
+    { src: "assets/audio/Ultimatum.mp3" }
   ];
 
   const audio = document.getElementById('playerAudio');
@@ -717,7 +744,6 @@ const ID3 = (function(){
   });
 
   // keep the art spinning whenever it's in view; pause it off-screen to save cycles
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (!reduceMotion && 'IntersectionObserver' in window){
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => artEl.classList.toggle('paused', !entry.isIntersecting));
