@@ -719,7 +719,31 @@ footer a:active{ color:var(--green); }
 }
 
 .player-info{ flex:1 1 220px; min-width:200px; }
-.player-title{ font-size:14px; font-weight:700; color:var(--text); margin-bottom:2px; }
+.player-title{
+  font-size:14px; font-weight:700; color:var(--text); margin-bottom:2px;
+  line-height:18px; height:18px;
+  overflow:hidden;
+  white-space:nowrap;
+}
+.player-title-track{
+  display:flex;
+  white-space:nowrap;
+  width:max-content;
+}
+.player-title-track.scrolling{
+  animation:playerTitleScroll linear infinite;
+}
+.player-title-item{
+  padding-right:var(--title-gap, 0px);
+}
+@keyframes playerTitleScroll{
+  from{ transform:translateX(0); }
+  to{ transform:translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce){
+  .player-title-track.scrolling{ animation:none; }
+  .player-title{ overflow-x:auto; }
+}
 .player-artist{ font-size:13px; color:var(--text-mid); margin-bottom:12px; }
 
 .player-progress{

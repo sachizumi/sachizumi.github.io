@@ -8,6 +8,12 @@
    order is safe; just keep Sound above the fold if you reorder sections. */
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// Shared with the "currently listening" player further down — same pattern
+// as Sound above: a plain top-level object every IIFE can close over. The
+// player writes the display title here on every track change; the buddy
+// reads it to react to whatever's actually playing.
+const NowPlaying = { title: null, artist: null };
+
 /* ---------- art lightbox ---------- */
 (function(){
   const tiles = Array.from(document.querySelectorAll('.art-tile'));
@@ -335,12 +341,69 @@ const Sound = (function(){
     "...okay you can stop clicking me now. or don't, I'm not the boss of you"
   ];
   const idleLines = ["bleh", "la la la la \ud83c\udfb5", "i'm still becoming, and that's enough", "rahhh!", "i love my 'puter, all my friends are in it :3", "owieee", "💥"];
+  // shows up occasionally instead of a normal idle line — a small
+  // just-for-her secret the buddy keeps, not something meant to be found on
+  // the first few clicks
+  const rareLine = "...also, hi mom. I love you :3";
+  const RARE_LINE_CHANCE = 0.05;
+
+  // "Omniscient" is just Date() — every browser already reports time in the
+  // visitor's own local clock, no geolocation or fetch needed. Picks a line
+  // for whatever hour it happens to be on their end.
+  const TIME_LINE_CHANCE = 0.15;
+  let timeLineShown = false;
+  function getTimeLine(){
+    const now = new Date();
+    const hour = now.getHours();
+    const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    if (hour < 5) return `it's ${timeStr} where you are... go to sleep. (or don't, I'm not the boss of you)`;
+    if (hour < 8) return `${timeStr}, huh? early riser or still up from last night?`;
+    if (hour < 12) return `morning! it's ${timeStr} on your end`;
+    if (hour < 17) return `${timeStr} there — afternoon slump yet?`;
+    if (hour < 21) return `evening already, ${timeStr} for you`;
+    return `${timeStr}... night owl hours. relatable`;
+  }
   let index = 0;
   let idleIndex = 0;
   let typing = false;
   let asleep = true;
   let typeTimer = null;
   let flapTimer = null;
+
+  // A long-press gets its own reaction instead of just advancing to the
+  // next line — a different kind of attention than a quick tap.
+  const HOLD_MS = 550;
+  let holdTimer = null;
+  let isLongPress = false;
+  const holdLines = ["...are you petting me?", "mmm, comfy", "this is nice ^-^", "that tickles!", "*squishing noises*", "aaaaaaaaaaaaaaaa", "IM GOING TO EXPLODE YOU", "blaerhghghhhh"];
+
+  // Track- and artist-specific hold reactions. Checked in this order: an
+  // exact song title match wins first (most specific), then an artist
+  // substring match, both read live off NowPlaying (populated from ID3
+  // metadata, or the TRACKS fallback fields, in the player below). Falls
+  // through to a random holdLines pick if nothing matches. To add another
+  // callout, just add a row here — nothing else needs to change.
+  const HOLD_REACTIONS = [
+    { type: 'title', match: 'dark waltz', line: 'my timeless favorite' },
+    { type: 'artist', match: 'dunni', line: "...dunni doesn't make music anymore, but their works still get me every time" },
+    { type: 'artist', match: 'key after key', line: 'genuinely addicted to this artist ever since their work on Boxing League' },
+    { type: 'artist', match: 'snaptic', line: 'makes great animations! check him out!' },
+    { type: 'artist', match: 'spellcasting', line: "im glad they're getting more recognition, please do listen to their discography!" }
+  ];
+  function holdReaction(){
+    if (typing) return;
+    const nowTitle = (NowPlaying.title || '').toLowerCase();
+    const nowArtist = (NowPlaying.artist || '').toLowerCase();
+    const matched = HOLD_REACTIONS.find(r =>
+      r.type === 'title' ? nowTitle === r.match : nowArtist.includes(r.match)
+    );
+    if (matched){
+      typeLine(matched.line, false);
+      return;
+    }
+    const line = holdLines[Math.floor(Math.random() * holdLines.length)];
+    typeLine(line, false);
+  }
 
   // The full line is placed in the DOM immediately as one span per
   // character, each starting visibility:hidden. Hidden (not display:none)
@@ -405,6 +468,13 @@ const Sound = (function(){
       line = lines[index];
       useShock = (index === 0);
       index++;
+    } else if (!timeLineShown && Math.random() < TIME_LINE_CHANCE){
+      line = getTimeLine();
+      useShock = false;
+      timeLineShown = true;
+    } else if (Math.random() < RARE_LINE_CHANCE){
+      line = rareLine;
+      useShock = false;
     } else {
       line = idleLines[idleIndex % idleLines.length];
       useShock = false;
@@ -474,15 +544,31 @@ const Sound = (function(){
       wake();
       return;
     }
+    if (isLongPress){
+      isLongPress = false; // holdReaction() already spoke; don't also advance
+      return;
+    }
     nextLine();
   });
 
   // Purely visual press feedback — kept separate from nextLine() above so
   // it fires on every tap, even while a line is still typing out and the
   // click itself is being ignored.
-  buddy.addEventListener('pointerdown', () => buddy.classList.add('squish'));
+  buddy.addEventListener('pointerdown', () => {
+    buddy.classList.add('squish');
+    if (asleep) return;
+    isLongPress = false;
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => {
+      isLongPress = true;
+      holdReaction();
+    }, HOLD_MS);
+  });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(evt => {
-    buddy.addEventListener(evt, () => buddy.classList.remove('squish'));
+    buddy.addEventListener(evt, () => {
+      buddy.classList.remove('squish');
+      clearTimeout(holdTimer);
+    });
   });
 
   window.addEventListener('load', () => {
@@ -612,7 +698,10 @@ const ID3 = (function(){
     { src: "assets/audio/The Orb Of Dreamers.mp3" },
     { src: "assets/audio/Girly Pop (pop music for girls).mp3" },
     { src: "assets/audio/DVD.mp3" },
-    { src: "assets/audio/Ultimatum.mp3" }
+    { src: "assets/audio/Ultimatum.mp3" },
+    { src: "assets/audio/the song that plays at the beach on your favorite childhood game.mp3" },
+    { src: "assets/audio/dancing around in circles until my little feet fall off.mp3" },
+    { src: "assets/audio/Dark Waltz.mp3" }
   ];
 
   const audio = document.getElementById('playerAudio');
@@ -620,6 +709,8 @@ const ID3 = (function(){
   const coverEl = document.getElementById('playerCover');
   const coverBackEl = document.getElementById('playerCoverBack');
   const titleEl = document.getElementById('playerTitle');
+  const titleTrackEl = document.getElementById('playerTitleTrack');
+  const titleItemEl = document.getElementById('playerTitleItem');
   const artistEl = document.getElementById('playerArtist');
   const playBtn = document.getElementById('playerPlay');
   const prevBtn = document.getElementById('playerPrev');
@@ -650,14 +741,51 @@ const ID3 = (function(){
     return fileName.replace(/\.[^/.]+$/, '');
   }
 
+  // Same idea as the status ticker up top: only scroll when the text
+  // actually doesn't fit, so most (short) song titles just sit still at
+  // their normal single-line height instead of the box growing to wrap a
+  // long one. When it does need to scroll, a second aria-hidden copy is
+  // appended with a gap so the loop is seamless, same trick the ticker uses.
+  const TITLE_PIXELS_PER_SECOND = 34;
+  const TITLE_GAP = 40;
+  function updateTitleMarquee(){
+    if (!titleTrackEl || !titleItemEl) return;
+    titleTrackEl.classList.remove('scrolling');
+    titleTrackEl.style.animationDuration = '';
+    Array.from(titleTrackEl.children).forEach((child, i) => { if (i > 0) child.remove(); });
+
+    const containerWidth = titleEl.clientWidth;
+    const textWidth = titleItemEl.scrollWidth;
+    if (reduceMotion || textWidth <= containerWidth) return;
+
+    titleTrackEl.style.setProperty('--title-gap', `${TITLE_GAP}px`);
+    const clone = titleItemEl.cloneNode(true);
+    clone.setAttribute('aria-hidden', 'true');
+    titleTrackEl.appendChild(clone);
+
+    const halfWidth = textWidth + TITLE_GAP;
+    const duration = Math.max(halfWidth / TITLE_PIXELS_PER_SECOND, 4);
+    titleTrackEl.style.animationDuration = `${duration}s`;
+    titleTrackEl.classList.add('scrolling');
+  }
+
+  let titleResizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(titleResizeTimer);
+    titleResizeTimer = setTimeout(updateTitleMarquee, 150);
+  });
+
   async function loadTrack(i, autoplay){
     index = (i + TRACKS.length) % TRACKS.length;
     const track = TRACKS[index];
     const myLoad = ++loadToken;
 
     audio.src = track.src;
-    titleEl.textContent = track.title || filenameToTitle(track.src);
+    titleItemEl.textContent = track.title || filenameToTitle(track.src);
+    NowPlaying.title = titleItemEl.textContent;
+    updateTitleMarquee();
     artistEl.textContent = track.artist || '';
+    NowPlaying.artist = track.artist || null;
     coverEl.src = track.cover || '';
     if (coverBackEl) coverBackEl.src = track.cover || '';
     progressFill.style.width = '0%';
@@ -671,13 +799,16 @@ const ID3 = (function(){
       return;
     }
 
-    titleEl.textContent = track.title || filenameToTitle(track.src);
+    titleItemEl.textContent = track.title || filenameToTitle(track.src);
     artistEl.textContent = tags.artist || track.artist || 'Unknown artist';
+    NowPlaying.title = titleItemEl.textContent;
+    NowPlaying.artist = artistEl.textContent;
+    updateTitleMarquee();
 
     if (coverBlobUrl) URL.revokeObjectURL(coverBlobUrl);
     coverBlobUrl = tags.coverUrl || null;
     coverEl.src = tags.coverUrl || track.cover || '';
-    coverEl.alt = `${titleEl.textContent} cover art`;
+    coverEl.alt = `${titleItemEl.textContent} cover art`;
     if (coverBackEl) coverBackEl.src = tags.coverUrl || track.cover || '';
 
     if (autoplay) audio.play().catch(() => {});
