@@ -387,7 +387,7 @@ const Sound = (function(){
     { type: 'title', match: 'dark waltz', line: 'my timeless favorite' },
     { type: 'artist', match: 'dunni', line: "...dunni doesn't make music anymore, but their works still get me every time" },
     { type: 'artist', match: 'key after key', line: 'genuinely addicted to this artist ever since their work on Boxing League' },
-    { type: 'artist', match: 'snaptic', line: 'makes great animations! check him out!' },
+    { type: 'artist', match: 'snaptic', line: 'snaptic makes great animations! check him out!' },
     { type: 'artist', match: 'spellcasting', line: "im glad they're getting more recognition, please do listen to their discography!" }
   ];
   function holdReaction(){
@@ -570,6 +570,12 @@ const Sound = (function(){
       clearTimeout(holdTimer);
     });
   });
+
+  // Backstop for the native mobile "save/share image" long-press menu —
+  // CSS (-webkit-touch-callout, touch-action) handles this in most cases,
+  // but some browsers still try to fire these on a long hold.
+  buddy.addEventListener('contextmenu', e => e.preventDefault());
+  img.addEventListener('dragstart', e => e.preventDefault());
 
   window.addEventListener('load', () => {
     setTimeout(() => {

@@ -356,6 +356,8 @@ section{ padding:44px 0; border-top:1px solid var(--border); }
   font-family:inherit;
   transform:translateY(78%);
   transition:transform 1.6s cubic-bezier(.22,1,.36,1);
+  touch-action:manipulation;
+  -webkit-touch-callout:none;
 }
 .buddy.revealed{ transform:translateY(0); }
 @media (prefers-reduced-motion: reduce){
@@ -413,6 +415,11 @@ section{ padding:44px 0; border-top:1px solid var(--border); }
   filter:drop-shadow(0 8px 16px rgba(0,0,0,0.55));
   transform-origin:bottom center;
   transition:transform .12s ease;
+  -webkit-touch-callout:none;
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-user-drag:none;
+  pointer-events:none;
 }
 .buddy.squish .buddy-img{ transform:scaleY(0.82) scaleX(1.08); }
 
